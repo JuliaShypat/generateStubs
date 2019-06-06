@@ -20,19 +20,21 @@ export function activate(context: vscode.ExtensionContext) {
     const currentFileUri = currentlyOpenTabfilePath.uri;
     vscode.workspace.openTextDocument(currentFileUri).then((document) => {
       let text = document.getText();
-      // console.log(text);
+
+      // Check if constructor is not empty
       const emptyConstructorIndex = text.indexOf('constructor() { }');
       if (emptyConstructorIndex !== -1) {
         return;
       }
-      const indexOfConstructor = text.indexOf('constructor(');
-      const endOfConstructor = text.indexOf(') {}');
-      console.log('empty', emptyConstructorIndex);
-      console.log('index', indexOfConstructor);
-      console.log('endOfConstructor', endOfConstructor);
-      const constructorStr = text.slice(indexOfConstructor, endOfConstructor);
-      const indexOfEndOfConstructor = constructorStr.indexOf('(');
-      const injectsStr = constructorStr.slice(indexOfEndOfConstructor + 1);
+
+      // Slice injects from contructor body
+      const startOfConstructor = text.indexOf('constructor(');
+      const endOfConstructor = text.indexOf(') {');
+      const constructorStr = text.slice(startOfConstructor, endOfConstructor);
+
+      const indexOfFirstInjects = constructorStr.indexOf('(') + 1;
+      const injectsStr = constructorStr.slice(indexOfFirstInjects);
+
       let injects = injectsStr.split(',');
       injects = injects.map(inject => {
         const index = inject.indexOf(':') + 1;
@@ -42,11 +44,28 @@ export function activate(context: vscode.ExtensionContext) {
           .trim();
       });
       console.log(injects);
-      const classStubs = injects.map(inject => {
-        return `class ${inject}Stub{}`;
+      
+      // Prepare output
+      const classStubs: Array<string> = [];
+      const variablesDefinition: Array<string> = [];
+      const providersDefinition: Array<string> = [];
+      const testBedDefinition: Array<string> = [];
+
+      // TODO: Avoid double mapping
+      injects.map(inject => {
+        const injectStub = `${inject}Stub`;
+        const variableName = `${inject.charAt(0).toLowerCase() + inject.slice(1)}`;
+
+        classStubs.push(`class ${injectStub} {}`);
+        variablesDefinition.push(`let ${variableName}: ${inject};`);
+        providersDefinition.push(`{ provide: ${inject}, useClass: ${injectStub} },`);
+        testBedDefinition.push(`${variableName} = TestBed.get(${inject});`);
       }
       );
       console.log('classStubs', classStubs);
+      console.log('variablesDefinition', variablesDefinition);
+      console.log('providersDefinition', providersDefinition);
+      console.log('testBedDefinition', testBedDefinition);
     });
     // Display a message box to the user
     vscode.window.showInformationMessage('Injects generated');
