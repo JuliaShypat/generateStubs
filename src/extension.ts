@@ -5,7 +5,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { URL } from 'url';
-
+import * as URI from 'uri-js';
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
@@ -26,13 +26,10 @@ export function activate(context: vscode.ExtensionContext) {
     const baseFileName = path.basename(currentlyOpenTabfile.fileName, '.ts');
     const baseFileNameWithExt = path.basename(currentlyOpenTabfile.fileName);
     const currentFilePath = currentlyOpenTabfile.uri.fsPath;
-    
     // Spec file
     const specFileName = baseFileName + '.spec.ts';
-    const fileUrl = new URL(currentFilePath);
-    console.log('currentlyOpenTabfile', currentlyOpenTabfile);
-    console.log('filename', specFileName);
-    console.log(fileUrl);
+    const specFilePath = currentFilePath.substr(0, currentFilePath.indexOf(baseFileNameWithExt)) + specFileName;
+    
     const currentFileUri = currentlyOpenTabfile.uri;
     vscode.workspace.openTextDocument(currentFileUri).then((document) => {
       let text = document.getText();
@@ -78,43 +75,12 @@ export function activate(context: vscode.ExtensionContext) {
         testBedDefinition.push(`${variableName} = TestBed.get(${inject});`);
       }
       );
-      console.log('classStubs', classStubs);
-      console.log('variablesDefinition', variablesDefinition);
-      console.log('providersDefinition', providersDefinition);
-      console.log('testBedDefinition', testBedDefinition);
 
-
-      let lyrics = 'But still I\'m having memories of high speeds when the cops crashed\n' +  
-             'As I laugh, pushin the gas while my Glocks blast\n' + 
-             'We was young and we was dumb but we had heart';
-
-      // write to a new file named 2pac.txt
-      // fs.writeFile(fileUrl, lyrics, (err) => {  
-      //     // throws an error, you could also catch it here
-      //     if (err) throw err;
-
-      //     // success case, the file was saved
-      //     console.log('Lyric saved!');
-      // });
-      // Open file
-      // fs.open(fileUrl, 'wx', (err, fd) => {
-      //   if (err) {
-      //     if (err.code === 'EEXIST') {
-      //       console.error('myfile already exists');
-      //       return;
-      //     }
-      
-      //     throw err;
-      //   }
-      //   fs.write(fd, buffer, 0, buffer.length, null, (err) => {
-      //       if (err) {
-      //         throw 'error writing file: ' + err;
-      //       }
-      //       fs.close(fd, function() {
-      //           console.log('wrote the file successfully');
-      //       });
-      //   });
-      // });
+      const data = new Uint8Array(Buffer.from('Hello Node.js'));
+      fs.writeFile(specFilePath, data, (err) => {
+        if (err) throw err;
+        console.log('The file has been saved!');
+      });
 
     });
     // Display a message box to the user
