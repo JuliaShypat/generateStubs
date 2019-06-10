@@ -1,27 +1,9 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-
 import * as path from 'path';
 import * as fs from 'fs';
-import { URL } from 'url';
-import * as URI from 'uri-js';
-// this method is called when your extension is activated
-// your extension is activated the very first time the command is executed
+
 export function activate(context: vscode.ExtensionContext) {
-
-  // Use the console to output diagnostic information (console.log) and errors (console.error)
-  // This line of code will only be executed once when your extension is activated
-  console.log('Extension "Generete Stubs for Jest Tests" is now active!');
-
-  // The command has been defined in the package.json file
-  // Now provide the implementation of the command with registerCommand
-  // The commandId parameter must match the command field in package.json
   let disposable = vscode.commands.registerCommand('extension.helloWorld', () => {
-    // The code you place here will be executed every time your command is executed
-    // console.log(vscode.window.activeTextEditor);
-
-    // Get currently opened file path and test spec file
     const currentlyOpenTabfile = vscode.window.activeTextEditor!.document;
     const baseFileName = path.basename(currentlyOpenTabfile.fileName, '.ts');
     const baseFileNameWithExt = path.basename(currentlyOpenTabfile.fileName);
@@ -49,38 +31,70 @@ export function activate(context: vscode.ExtensionContext) {
       const injectsStr = constructorStr.slice(indexOfFirstInjects);
 
       let injects = injectsStr.split(',');
-      injects = injects.map(inject => {
-        const index = inject.indexOf(':') + 1;
-        return inject
-          .slice(index)
-          .replace(/^\s+|\s+$/gm, '')
-          .trim();
-      });
-      console.log(injects);
-      
-      // Prepare output
-      const classStubs: Array<string> = [];
-      const variablesDefinition: Array<string> = [];
-      const providersDefinition: Array<string> = [];
-      const testBedDefinition: Array<string> = [];
 
-      // TODO: Avoid double mapping
-      injects.map(inject => {
-        const injectStub = `${inject}Stub`;
-        const variableName = `${inject.charAt(0).toLowerCase() + inject.slice(1)}`;
-
-        classStubs.push(`class ${injectStub} {}`);
-        variablesDefinition.push(`let ${variableName}: ${inject};`);
-        providersDefinition.push(`{ provide: ${inject}, useClass: ${injectStub} },`);
-        testBedDefinition.push(`${variableName} = TestBed.get(${inject});`);
-      }
-      );
-
-      const data = new Uint8Array(Buffer.from('Hello Node.js'));
-      fs.writeFile(specFilePath, data, (err) => {
+      fs.readFile(specFilePath, (err, data) => {
         if (err) throw err;
-        console.log('The file has been saved!');
+
+        // Prepare output
+        const classStubs: Array<string> = [];
+        const variablesDefinition: Array<string> = [];
+        const providersDefinition: Array<string> = [];
+        const testBedDefinition: Array<string> = [];
+
+        injects.map(inj => {
+          const index = inj.indexOf(':') + 1;
+          const inject = inj
+            .slice(index)
+            .replace(/^\s+|\s+$/gm, '')
+            .trim();
+          const injectStub = `${inject}Stub`;
+          const variableName = `${inject.charAt(0).toLowerCase() + inject.slice(1)}`;
+          // Check if exists already in spec file
+          if (data.indexOf(`class ${injectStub}`) === -1) {
+            classStubs.push(`class ${injectStub} {}\n\r`);
+          }
+          if (data.indexOf(`let ${variableName}: ${inject}`) === -1) {
+            variablesDefinition.push(`\t\tlet ${variableName}: ${inject};\n`);
+          }
+          if (data.indexOf(`provide: ${inject}, useClass: ${injectStub}`) === -1) {
+            providersDefinition.push(`{ provide: ${inject}, useClass: ${injectStub} },\n`);
+          }
+          if (data.indexOf(`${variableName} = TestBed.get(${inject});`) === -1) {
+            testBedDefinition.push(`${variableName} = TestBed.get(${inject});\n`);
+          }
+        });
+        // Get Main indexes in the file
+        const indexOfDescribe = data.indexOf('describe(');
+        const indexBeforeEach = data.indexOf('beforeEach(async(() => {');
+        const indexProviders = data.indexOf('providers: [') + 'providers: ['.length;
+
+        // Check if already added to file 
+        const part1 = data.slice(0, indexOfDescribe - 1);
+        const part2 = data.slice(indexOfDescribe, indexBeforeEach - 1);
+        const part3 = data.slice(indexBeforeEach, data.length);
+
+        // Prepare content for insert
+        const missingStubs = classStubs.join('');
+        const missingVars = variablesDefinition.join('');
+
+        // Create new content
+        const bufferWithNewContent = 
+            part1.toString() 
+            + '\n'
+            + missingStubs 
+            + part2.toString() 
+            + '\n\r'
+            + missingVars
+            + part3.toString();
+        const newContent = new Uint8Array(Buffer.from(bufferWithNewContent));
+        // Write new content to file
+        fs.writeFile(specFilePath, newContent, (err) => {
+          if (err) throw err;
+          console.log('The file has been saved!');
+        });
       });
+
+   
 
     });
     // Display a message box to the user
