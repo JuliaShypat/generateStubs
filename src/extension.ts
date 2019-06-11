@@ -67,18 +67,27 @@ export function activate(context: vscode.ExtensionContext) {
         const indexOfDescribe = data.indexOf('describe(');
         const indexBeforeEach = data.indexOf('beforeEach(async(() => {');
         const indexProviders = data.indexOf('providers: [') + 'providers: ['.length;
-        const indexLastTestBed = data.lastIndexOf('TestBed.get(');
+        // Get index of last test bed with regexp
+        const dataStr = data.toString();
+        const match = dataStr.match(/TestBed.get.\w*.;/gi);
+        let indexLastTestBed;
+        if (match && match.length > 0) {
+          const lastIndex  = dataStr.lastIndexOf(match[match.length-1]);
+          indexLastTestBed = lastIndex + match[match.length-1].length;
+        }
 
         // Check if already added to file 
         const part1 = data.slice(0, indexOfDescribe - 1);
         const part2 = data.slice(indexOfDescribe, indexBeforeEach - 1);
         const part3 = data.slice(indexBeforeEach, indexProviders);
-        const part4 = data.slice(indexProviders, data.length);
+        const part4 = data.slice(indexProviders, indexLastTestBed);
+        const part5 = data.slice(indexLastTestBed, data.length);
 
         // Prepare content for insert
         const missingStubs = classStubs.join('');
         const missingVars = variablesDefinition.join('');
         const missingProviders = providersDefinition.join('');
+        const missingTestBeds = testBedDefinition.join('');
 
         // Create new content
         const bufferWithNewContent = 
@@ -91,7 +100,10 @@ export function activate(context: vscode.ExtensionContext) {
             + part3.toString()
             + '\n'
             + missingProviders
-            + part4.toString();
+            + part4.toString()
+            + '\n'
+            + missingTestBeds
+            + part5.toString();
         const newContent = new Uint8Array(Buffer.from(bufferWithNewContent));
         // Write new content to file
         fs.writeFile(specFilePath, newContent, (err) => {
