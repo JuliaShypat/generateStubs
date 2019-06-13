@@ -69,17 +69,26 @@ export function activate(context: vscode.ExtensionContext) {
         const indexProviders = data.indexOf('providers: [') + 'providers: ['.length;
         // Get index of last test bed with regexp
         const dataStr = data.toString();
-        const match = dataStr.match(/TestBed.get.\w*.;/gi);
+
+        // TODO: Find fallback if no testBed.get
+        const testBedMatch = dataStr.match(/TestBed.get.\w*.;/gi);
+        const describeMatch = dataStr.match(/describe.*() => {/gi);
+        let indexOfDescribeEnd = indexBeforeEach - 1;
         let indexLastTestBed;
-        if (match && match.length > 0) {
-          const lastIndex  = dataStr.lastIndexOf(match[match.length-1]);
-          indexLastTestBed = lastIndex + match[match.length-1].length;
+        if (testBedMatch && testBedMatch.length > 0) {
+          const lastIndex  = dataStr.lastIndexOf(testBedMatch[testBedMatch.length-1]);
+          indexLastTestBed = lastIndex + testBedMatch[testBedMatch.length-1].length;
         }
 
+        if (describeMatch && describeMatch.length > 0) {
+          const lastIndex  = dataStr.indexOf(describeMatch[0]);
+          indexOfDescribeEnd = lastIndex + describeMatch[0].length;
+        }
+        
         // Check if already added to file 
-        const part1 = data.slice(0, indexOfDescribe - 1);
-        const part2 = data.slice(indexOfDescribe, indexBeforeEach - 1);
-        const part3 = data.slice(indexBeforeEach, indexProviders);
+        const part1 = data.slice(0, indexOfDescribe);
+        const part2 = data.slice(indexOfDescribe, indexOfDescribeEnd);
+        const part3 = data.slice(indexOfDescribeEnd, indexProviders);
         const part4 = data.slice(indexProviders, indexLastTestBed);
         const part5 = data.slice(indexLastTestBed, data.length);
 
@@ -111,8 +120,6 @@ export function activate(context: vscode.ExtensionContext) {
           console.log('The file has been saved!');
         });
       });
-
-   
 
     });
     // Display a message box to the user
